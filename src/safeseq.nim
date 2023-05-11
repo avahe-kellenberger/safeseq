@@ -12,6 +12,7 @@ proc newSafeSeq*[T](initialSize = 0, preserveOrder = true): SafeSeq[T] =
   SafeSeq[T](elements: newSeq[T](initialSize), preserveOrder: preserveOrder)
 
 proc areElementsLocked*[T](this: SafeSeq[T]): bool =
+  ## If the elements are currently being iterated over.
   this.iterationDepth > 0
 
 template addNow[T](this: SafeSeq[T], t: T) =
@@ -55,6 +56,8 @@ proc contains*[T](this: SafeSeq[T], t: T): bool =
   return this.elements.contains(t)
 
 template keepItIf*[T](this: SafeSeq[T], pred: untyped) =
+  ## Invokes sequtils.keepItIf on the underlying data structure.
+  ## WARNING: You should ensure that this.areElementsLocked is false before performing this operation.
   this.elements.keepItIf(pred)
 
 iterator items*[T](this: SafeSeq[T]): T =
