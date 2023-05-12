@@ -1,9 +1,4 @@
-import
-  nimtest,
-  safeseq,
-  sequtils,
-  hashes
-
+import nimtest, safeseq
 import std/monotimes
 
 const ONE_BILLION = 1_000_000_000
@@ -21,7 +16,7 @@ type Foo = object
 
 describe "Performance":
 
-  test "remove (order preserved)":
+  test "remove (order not preserved)":
     const size = 10_000
     echo "Calling remove on " & $size & " items..."
     let safeseq = newSafeSeq[Foo](size)
@@ -34,16 +29,16 @@ describe "Performance":
 
     echo "Removal time: " & $runtime & " seconds"
 
-  test "remove (order NOT preserved)":
+  test "removePreserveOrder (order preserved)":
     const size = 10_000
     echo "Calling remove on " & $size & " items..."
-    let safeseq = newSafeSeq[Foo](size, false)
+    let safeseq = newSafeSeq[Foo](size)
     for i in 0..size:
       safeseq.add(Foo())
 
     let runtime = measureRuntime:
       for item in safeseq:
-        safeseq.remove(item)
+        safeseq.removePreserveOrder(item)
 
     echo "Removal time: " & $runtime & " seconds"
 

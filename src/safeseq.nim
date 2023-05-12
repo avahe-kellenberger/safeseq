@@ -1,15 +1,22 @@
 import std/sequtils
 
 type
+  PendingElement[T] = object
+    t: T
+    inserting: bool
+    preserveOrder: bool
+
   SafeSeq*[T] = ref object
     elements: seq[T]
     iterationDepth: int
-    pendingElements: seq[(T, bool)]
+    pendingElements: seq[PendingElement[T]]
     pendingClear: bool
-    preserveOrder: bool
 
-proc newSafeSeq*[T](initialSize = 0, preserveOrder = true): SafeSeq[T] =
-  SafeSeq[T](elements: newSeq[T](initialSize), preserveOrder: preserveOrder)
+proc pendingElement[T](t: T, inserting, preserveOrder: bool): PendingElement[T] =
+  PendingElement[T](t: t, inserting: inserting, preserveOrder: preserveOrder)
+
+proc newSafeSeq*[T](initialSize = 0): SafeSeq[T] =
+  SafeSeq[T](elements: newSeq[T](initialSize))
 
 proc areElementsLocked*[T](this: SafeSeq[T]): bool =
   ## If the elements are currently being iterated over.
@@ -18,18 +25,18 @@ proc areElementsLocked*[T](this: SafeSeq[T]): bool =
 template addNow[T](this: SafeSeq[T], t: T) =
   this.elements.add(t)
 
-template removeNowAt[T](this: SafeSeq[T], i: int) =
+template removeNowAt[T](this: SafeSeq[T], i: int, preserveOrder: bool) =
   ## Unsafe immediate removal of an element.
-  if this.preserveOrder:
+  if preserveOrder:
     this.elements.delete(i)
   else:
     this.elements.del(i)
 
-template removeNow[T](this: SafeSeq[T], t: T) =
+template removeNow[T](this: SafeSeq[T], t: T, preserveOrder: bool) =
   ## Unsafe immediate removal of an element.
   for i, e in this.elements:
     if e == t:
-      removeNowAt(this, i)
+      removeNowAt(this, i, preserveOrder)
       break
 
 template clearNow(this: SafeSeq) =
@@ -40,16 +47,27 @@ template clearNow(this: SafeSeq) =
 proc add*[T](this: SafeSeq[T], t: T) =
   ## Adds an item to the seq.
   if this.areElementsLocked():
-    this.pendingElements.add((t, true))
+    this.pendingElements.add(pendingElement(t, true, true))
   else:
     this.addNow(t)
 
-proc remove*[T](this: SafeSeq[T], t: T) =
+proc remove*[T](this: SafeSeq[T], t: T, preserveOrder: bool) =
   ## Removes an item from the seq.
   if this.areElementsLocked():
-    this.pendingElements.add((t, false))
+    this.pendingElements.add(pendingElement(t, false, preserveOrder))
   else:
-    this.removeNow(t)
+    this.removeNow(t, preserveOrder)
+
+template remove*[T](this: SafeSeq[T], t: T) =
+  ## Removes an item from the seq.
+  ## This does NOT preserve the insertion order of elements.
+  this.remove(t, false)
+
+template removePreserveOrder*[T](this: SafeSeq[T], t: T) =
+  ## Removes an item from the seq.
+  ## This preserves the insertion order of elements,
+  ## at the cost of some speed.
+  this.remove(t, true)
 
 proc contains*[T](this: SafeSeq[T], t: T): bool =
   ## If the seq currently contains an item, before checking pending elements.
@@ -79,11 +97,11 @@ iterator items*[T](this: SafeSeq[T]): T =
       if this.pendingClear:
         this.clearNow()
       else:
-        for (element, adding) in this.pendingElements:
-          if adding:
-            this.addNow(element)
+        for element in this.pendingElements:
+          if element.inserting:
+            this.addNow(element.t)
           else:
-            this.removeNow(element)
+            this.removeNow(element.t, element.preserveOrder)
         this.pendingElements.setLen(0)
 
 iterator pairs*[T](this: SafeSeq[T]): (int, T) =
@@ -100,9 +118,9 @@ proc len*(this: SafeSeq): int =
     result = this.elements.len
 
     if this.areElementsLocked():
-      for (element, adding) in this.pendingElements:
-        let isInElements = this.elements.contains(element)
-        if adding:
+      for element in this.pendingElements:
+        let isInElements = this.elements.contains(element.t)
+        if element.inserting:
           if not isInElements:
             result += 1
         elif isInElements:
