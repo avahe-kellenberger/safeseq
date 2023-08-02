@@ -128,7 +128,7 @@ proc len*(this: SafeSeq): int =
 
 proc clear*(this: SafeSeq) =
   if not this.areElementsLocked():
-    this.clearNow():
+    this.clearNow()
   else:
     this.pendingClear = true
 
