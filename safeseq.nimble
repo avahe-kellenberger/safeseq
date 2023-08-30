@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.1.0"
+version       = "1.0.0"
 author        = "Avahe Kellenberger"
 description   = "Seq that can safely add and remove elements while iterating."
 license       = "GPL-2.0-only"
