@@ -116,7 +116,7 @@ describe "SafeSeq":
       safeseq.add(5)
 
       safeseq.keepItIf(it >= 10)
-      assertEquals(safeseq.len(), 0)
+      assertEquals(safeseq.len, 0)
 
     it "will keep all elements if all of the predicate conditions are met":
       let safeseq = newSafeSeq[int]()
@@ -128,4 +128,44 @@ describe "SafeSeq":
 
       safeseq.keepItIf(it >= 0)
       assertEquals(safeseq.items.toSeq(), @[1, 2, 3, 4, 5])
+
+  describe "clear":
+
+    it "clears the elements when no changes are pending":
+      let safeseq = newSafeSeq[int]()
+      safeseq.add(1)
+      safeseq.add(2)
+      safeseq.add(3)
+
+      safeseq.clear()
+      assertEquals(safeseq.len(), 0)
+
+    it "clears the elements after iteration":
+      let safeseq = newSafeSeq[int]()
+      safeseq.add(1)
+      safeseq.add(2)
+      safeseq.add(3)
+
+      for item in safeseq.items:
+        safeseq.clear()
+        # The clear is pending, so the length should always remain the same.
+        assertEquals(safeseq.len(), 3)
+
+      assertEquals(safeseq.len(), 0)
+
+    it "clears the elements existing only before insertion":
+      let safeseq = newSafeSeq[int]()
+      safeseq.add(1)
+      safeseq.add(2)
+      safeseq.add(3)
+
+      var firstIteration = true
+
+      for item in safeseq.items:
+        safeseq.add(5)
+        if firstIteration:
+          safeseq.clear()
+          firstIteration = false
+
+      assertEquals(safeseq.items.toSeq(), @[ 5, 5 ])
 
